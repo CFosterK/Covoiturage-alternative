@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 46;
+const APP_VERSION = 47;
 const STORAGE_KEY = 'covoiturageData';
 const MAX_BACKUP_SIZE = 20_000_000;
 const MAX_PEOPLE = 30;
@@ -302,12 +302,90 @@ function addTrip(){
   if(saveData()){ renderAll(); flash('Nouveau trajet enregistré ✓'); }
 }
 
-function renderHistory(){
-  const select=$('#historyPerson'), previous=select.value||'all';
+function renderHistoryFilter(prefix){
+  const select=$(`#${prefix}Person`), previous=select.value||'all';
   select.innerHTML='<option value="all">Tous les passagers</option>'+data.people.map((name,i)=>`<option value="${i}">${escapeHTML(name)}${isArchived(i)?' (archivé)':''}</option>`).join('');
   select.value=previous==='all'||data.people[Number(previous)]!==undefined?previous:'all';
+  const mode=$(`#${prefix}Period`).value;
+  for(const [value,suffix] of [['year','Year'],['month','Month'],['week','Week']]){
+    $(`#${prefix}${suffix}Field`).classList.toggle('hidden',mode!==value);
+  }
+}
+
+function historyDateRange(prefix){
+  const mode=$(`#${prefix}Period`).value;
+  if(mode==='all') return {start:'',end:'',label:'Toutes les dates'};
+  if(mode==='year'){
+    const year=$(`#${prefix}Year`).value;
+    return /^[1-9]\d{3}$/.test(year)?{start:`${year}-01-01`,end:`${year}-12-31`,label:`Année ${year}`}:null;
+  }
+  if(mode==='month'){
+    const month=$(`#${prefix}Month`).value;
+    if(!/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(month)) return null;
+    return {start:`${month}-01`,end:`${month}-31`,label:new Date(`${month}-01T12:00:00`).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})};
+  }
+  const date=safeDate($(`#${prefix}Week`).value,null);
+  if(!date) return null;
+  const monday=new Date(`${date}T12:00:00`);
+  monday.setDate(monday.getDate()-((monday.getDay()+6)%7));
+  const sunday=new Date(monday);sunday.setDate(sunday.getDate()+6);
+  const format=d=>d.toLocaleDateString('fr-FR');
+  return {start:localISO(monday),end:localISO(sunday),label:`Du ${format(monday)} au ${format(sunday)}`};
+}
+
+function historyRecords(prefix){
+  const range=historyDateRange(prefix), person=$(`#${prefix}Person`).value;
+  if(!range) return [];
+  const records=prefix==='history'?data.trips:data.payments;
+  return records.filter(record=>
+    (!range.start || (record.date>=range.start&&record.date<=range.end)) &&
+    (person==='all' || (prefix==='history'?record.people.includes(Number(person)):record.person===Number(person)))
+  );
+}
+
+function renderHistoryStatus(prefix,count,total){
+  const range=historyDateRange(prefix), person=$(`#${prefix}Person`).value;
+  const name=person==='all'?'Tous les passagers':personName(Number(person));
+  const noun=prefix==='history'?'trajet(s)':'versement(s)';
+  $(`#${prefix}FilterStatus`).textContent=range?`${count} ${noun} sur ${total} · ${name} · ${range.label}`:'Choisissez une période valide.';
+}
+
+function clearWholeHistory(kind){
+  const count=data[kind].length;
+  if(!count) return;
+  const trips=kind==='trips';
+  const noun=trips?'trajet(s)':'versement(s)';
+  const other=trips?'Les versements et les passagers seront conservés.':'Les trajets et les passagers seront conservés.';
+  if(!confirm(`Supprimer définitivement les ${count} ${noun} de tout l’historique, y compris ceux masqués par les filtres ?\n\n${other} Les montants du bilan seront mis à jour. Cette action est irréversible. Pensez à sauvegarder vos données avant de continuer.`)) return;
+  data[kind]=[];
+  if(saveData()){
+    if(trips&&editingTripId) finishEditing();
+    paymentDisplayLimit=8;
+    renderAll();flash(`Historique des ${trips?'trajets':'versements'} vidé`);
+  }
+}
+
+function initHistoryFilters(){
+  for(const prefix of ['history','payments']){
+    $(`#${prefix}Year`).value=getToday().slice(0,4);
+    $(`#${prefix}Month`).value=getToday().slice(0,7);
+    $(`#${prefix}Week`).value=getToday();
+    const render=()=>{if(prefix==='history')renderHistory();else{paymentDisplayLimit=8;renderPayments();}};
+    for(const suffix of ['Person','Period','Year','Month','Week']) $(`#${prefix}${suffix}`).addEventListener('change',render);
+    $(`#reset${prefix==='history'?'History':'Payments'}Filters`).addEventListener('click',()=>{
+      $(`#${prefix}Person`).value='all';$(`#${prefix}Period`).value='all';render();
+    });
+  }
+  $('#clearTrips').addEventListener('click',()=>clearWholeHistory('trips'));
+  $('#clearPayments').addEventListener('click',()=>clearWholeHistory('payments'));
+}
+
+function renderHistory(){
+  renderHistoryFilter('history');
   const expanded=new Set($$('#historyList details[open]').map(el=>el.dataset.id));
-  const trips=[...data.trips].filter(t=>select.value==='all'||t.people.includes(Number(select.value))).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
+  const trips=historyRecords('history').sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
+  renderHistoryStatus('history',trips.length,data.trips.length);
+  $('#clearTrips').disabled=!data.trips.length;
   const groups=new Map();
   trips.forEach(t=>{const month=t.date.slice(0,7);if(!groups.has(month))groups.set(month,[]);groups.get(month).push(t);});
   $('#historyList').innerHTML=trips.length?[...groups].map(([month,items])=>{
@@ -324,7 +402,7 @@ function renderHistory(){
       ].filter(Boolean).map(escapeHTML).join('<br>');
       return `<details class="history-item" data-id="${t.id}"${expanded.has(t.id)?' open':''}><summary><span class="history-overview"><b>${escapeHTML(dateLabel)}</b><span class="history-names">${escapeHTML(names)}</span>${t.noTrip?'':`<span class="small">Participation prévue : <strong>${euro(t.rate*t.people.length)}</strong></span>`}</span><span class="history-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="history-detail"><p class="small">${snapshot}</p><div class="history-actions"><button class="btn secondary compact has-icon edit-trip" type="button" data-id="${t.id}">${UI_ICONS.edit}<span class="btn-label">${t.noTrip?'Modifier la date':'Modifier'}</span></button><button class="btn danger compact has-icon delete-trip" type="button" data-id="${t.id}">${UI_ICONS.trash}<span class="btn-label">Supprimer</span></button></div></div></details>`;
     }).join('')}</section>`;
-  }).join(''):`<p class="small">${data.trips.length?'Aucun trajet pour ce passager.':'Aucun trajet enregistré.'}</p>`;
+  }).join(''):`<p class="small">${data.trips.length?'Aucun trajet pour ces filtres.':'Aucun trajet enregistré.'}</p>`;
 }
 
 function filteredTrips(){
@@ -353,10 +431,15 @@ function filteredPayments(){
 
 let paymentDisplayLimit=8;
 function renderPayments(){
+  const selectedPerson=$('#payPerson').value;
   $('#payPerson').innerHTML=data.people.map((name,i)=>`<option value="${i}">${escapeHTML(name)}${isArchived(i)?' (archivé)':''}</option>`).join('');
+  if(selectedPerson!==''&&data.people[Number(selectedPerson)]!==undefined) $('#payPerson').value=selectedPerson;
   if(!$('#payDate').value) $('#payDate').value=getToday();
-  const payments=[...data.payments].sort((a,b)=>b.date.localeCompare(a.date));
-  $('#paymentHistory').innerHTML=payments.length?`<div class="small payment-caption">Versements · ${Math.min(paymentDisplayLimit,payments.length)} sur ${payments.length} (toutes périodes)</div>${payments.slice(0,paymentDisplayLimit).map(p=>`<div class="payment-item"><span>${escapeHTML(personName(p.person))}${isArchived(p.person)?'<span class="archive-tag">archivé</span>':''}<br><span class="small">${escapeHTML(new Date(`${p.date}T12:00:00`).toLocaleDateString('fr-FR'))}</span></span><span class="payment-value"><b>${euro(p.amount)}</b><button class="btn danger compact has-icon delete-payment" type="button" aria-label="Supprimer ce versement" data-id="${p.id}">${UI_ICONS.trash}<span class="btn-label">Supprimer</span></button></span></div>`).join('')}${payments.length>paymentDisplayLimit?'<button type="button" class="btn secondary" id="morePayments">Afficher les versements suivants</button>':''}`:'<p class="small">Aucun versement enregistré.</p>';
+  renderHistoryFilter('payments');
+  const payments=historyRecords('payments').sort((a,b)=>b.date.localeCompare(a.date));
+  renderHistoryStatus('payments',payments.length,data.payments.length);
+  $('#clearPayments').disabled=!data.payments.length;
+  $('#paymentHistory').innerHTML=payments.length?`<div class="small payment-caption">Versements · ${Math.min(paymentDisplayLimit,payments.length)} sur ${payments.length}${$('#paymentsPeriod').value==='all'?' (toutes périodes)':''}</div>${payments.slice(0,paymentDisplayLimit).map(p=>`<div class="payment-item"><span>${escapeHTML(personName(p.person))}${isArchived(p.person)?'<span class="archive-tag">archivé</span>':''}<br><span class="small">${escapeHTML(new Date(`${p.date}T12:00:00`).toLocaleDateString('fr-FR'))}</span></span><span class="payment-value"><b>${euro(p.amount)}</b><button class="btn danger compact has-icon delete-payment" type="button" aria-label="Supprimer ce versement" data-id="${p.id}">${UI_ICONS.trash}<span class="btn-label">Supprimer</span></button></span></div>`).join('')}${payments.length>paymentDisplayLimit?'<button type="button" class="btn secondary" id="morePayments">Afficher les versements suivants</button>':''}`:'<p class="small">Aucun versement pour ces filtres.</p>';
 }
 
 function renderSummary(){
@@ -666,7 +749,7 @@ $('#save').addEventListener('click',addTrip);
 $('#tripDate').addEventListener('input',calcToday);
 $('#tripDate').addEventListener('change',calcToday);
 $('#cancelEdit').addEventListener('click',()=>{finishEditing();selectTab('history');});
-$('#historyPerson').addEventListener('change',renderHistory);
+
 $('#personSummary').addEventListener('click',event=>{
   const button=event.target.closest('.quick-payment');if(button)preparePayment(Number(button.dataset.personIndex));
 });
@@ -722,6 +805,7 @@ document.addEventListener('click',event=>{
   button.animate([{transform:'scale(1)'},{transform:'scale(.97)'},{transform:'scale(1)'}],{duration:180,easing:'ease-out'});
 });
 
+initHistoryFilters();
 installKeyboardNavigation();
 applyTheme();
 renderAll();

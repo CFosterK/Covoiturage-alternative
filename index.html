@@ -13,11 +13,11 @@
   <meta name="format-detection" content="telephone=no">
   <meta name="color-scheme" content="light dark">
   <title>Covoiturage</title>
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=46">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=46">
-  <link rel="manifest" href="manifest.webmanifest?v=46">
-  <link rel="stylesheet" href="styles.css?v=46">
-  <script defer src="app.js?v=46"></script>
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=47">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=47">
+  <link rel="manifest" href="manifest.webmanifest?v=47">
+  <link rel="stylesheet" href="styles.css?v=47">
+  <script defer src="app.js?v=47"></script>
 </head>
 <body data-view="today">
   <div class="ambient" aria-hidden="true"></div>
@@ -83,8 +83,20 @@
     <section id="history" class="view hidden" role="tabpanel" tabindex="0">
       <article class="card content-card">
         <h1 class="date">Historique</h1>
-        <div class="field"><label for="historyPerson">Passager</label><select id="historyPerson"><option value="all">Tous les passagers</option></select></div>
+        <details class="history-filters" id="historyFilters">
+          <summary>Filtrer les trajets</summary>
+          <div class="history-filter-grid">
+            <div class="field"><label for="historyPerson">Passager</label><select id="historyPerson"><option value="all">Tous les passagers</option></select></div>
+            <div class="field"><label for="historyPeriod">Période</label><select id="historyPeriod"><option value="all">Toutes les dates</option><option value="year">Année</option><option value="month">Mois</option><option value="week">Semaine</option></select></div>
+            <div class="field hidden" id="historyYearField"><label for="historyYear">Année</label><input id="historyYear" type="number" min="1000" max="9999" step="1" inputmode="numeric"></div>
+            <div class="field hidden" id="historyMonthField"><label for="historyMonth">Mois</label><input id="historyMonth" type="month"></div>
+            <div class="field hidden" id="historyWeekField"><label for="historyWeek">Une date dans la semaine</label><input id="historyWeek" type="date"><span class="small">Du lundi au dimanche.</span></div>
+          </div>
+          <button class="btn secondary compact" id="resetHistoryFilters" type="button">Réinitialiser les filtres</button>
+        </details>
+        <p class="small" id="historyFilterStatus" role="status"></p>
         <div id="historyList"></div>
+        <button class="btn danger clear-history" id="clearTrips" type="button">Vider tout l’historique des trajets</button>
       </article>
     </section>
 
@@ -124,7 +136,20 @@
 
       <article class="card content-card" id="paymentsHistoryCard">
         <h2 class="date">Historique des versements</h2>
+        <details class="history-filters" id="paymentsFilters">
+          <summary>Filtrer les versements</summary>
+          <div class="history-filter-grid">
+            <div class="field"><label for="paymentsPerson">Passager</label><select id="paymentsPerson"><option value="all">Tous les passagers</option></select></div>
+            <div class="field"><label for="paymentsPeriod">Période</label><select id="paymentsPeriod"><option value="all">Toutes les dates</option><option value="year">Année</option><option value="month">Mois</option><option value="week">Semaine</option></select></div>
+            <div class="field hidden" id="paymentsYearField"><label for="paymentsYear">Année</label><input id="paymentsYear" type="number" min="1000" max="9999" step="1" inputmode="numeric"></div>
+            <div class="field hidden" id="paymentsMonthField"><label for="paymentsMonth">Mois</label><input id="paymentsMonth" type="month"></div>
+            <div class="field hidden" id="paymentsWeekField"><label for="paymentsWeek">Une date dans la semaine</label><input id="paymentsWeek" type="date"><span class="small">Du lundi au dimanche.</span></div>
+          </div>
+          <button class="btn secondary compact" id="resetPaymentsFilters" type="button">Réinitialiser les filtres</button>
+        </details>
+        <p class="small" id="paymentsFilterStatus" role="status"></p>
         <div id="paymentHistory" class="payment-history"></div>
+        <button class="btn danger clear-history" id="clearPayments" type="button">Vider tout l’historique des versements</button>
       </article>
     </section>
 
@@ -184,7 +209,7 @@
         <div class="privacy-note">
         <h3 class="subsection-title">Confidentialité</h3>
         <p class="small">Les trajets, versements et réglages restent sur cet appareil. L’application n’envoie pas ces données vers un serveur.</p>
-        <div class="version-badge">Version 46 · Liquid Glass</div>
+        <div class="version-badge">Version 47 · Liquid Glass</div>
         </div>
       </article>
     </section>

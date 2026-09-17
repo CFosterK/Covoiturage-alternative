@@ -278,3 +278,11 @@ summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-
 /* Leave the visible area free for the mobile keyboard and focused input. */
 body.keyboard-editing .glass-nav{visibility:hidden;pointer-events:none}
 body.keyboard-editing .glass-nav .tab{pointer-events:none}
+
+/* Compact, independent filters for the two histories. */
+.history-filters{margin:12px 0;border-bottom:1px solid var(--hairline);padding-bottom:12px}
+.history-filters>summary{min-height:44px;cursor:pointer;font-size:15px;font-weight:700;padding:12px 0;color:var(--accent)}
+.history-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.history-filter-grid input[type="month"]{width:100%;min-width:0;max-width:100%}
+.clear-history{margin-top:20px}
+@media(max-width:420px){.history-filter-grid{grid-template-columns:1fr}}
