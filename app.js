@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 44;
+const APP_VERSION = 45;
 const STORAGE_KEY = 'covoiturageData';
 const MAX_BACKUP_SIZE = 20_000_000;
 const MAX_PEOPLE = 30;
@@ -383,34 +383,12 @@ function renderSummary(){
   }).join('');
 }
 
-let cancelPaymentScroll=()=>{};
 function preparePayment(index){
   if(!Number.isInteger(index)||index<0||index>=data.people.length) return;
-  cancelPaymentScroll();
   $('#payPerson').value=String(index);$('#payAmount').value='';$('#payDate').value=getToday();
-  const waitForKeyboard=document.body.classList.contains('keyboard-editing');
-  document.activeElement?.blur();
-  const viewport=window.visualViewport;
-  let timer;
-  const cancel=()=>{
-    clearTimeout(timer);
-    viewport?.removeEventListener('resize',schedule);
-    document.removeEventListener('pointerdown',cancel);
-    document.removeEventListener('focusin',cancel);
-  };
-  const reveal=()=>{
-    cancel();
-    if(document.body.dataset.view==='summary') $('#payAmount').scrollIntoView({block:'center',behavior:'auto'});
-  };
-  const schedule=()=>{clearTimeout(timer);timer=setTimeout(reveal,300);};
-  cancelPaymentScroll=cancel;
-  if(waitForKeyboard){
-    // Wait until the previous keyboard stops resizing; never open it here.
-    viewport?.addEventListener('resize',schedule);
-    document.addEventListener('pointerdown',cancel);
-    document.addEventListener('focusin',cancel);
-    schedule();
-  }else reveal();
+  // Focus synchronously within the tap so iOS can open the keyboard.
+  // Let the browser reveal the field; no competing scripted scrolling.
+  $('#payAmount').focus();
 }
 
 function installKeyboardNavigation(){
