@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 45;
+const APP_VERSION = 46;
 const STORAGE_KEY = 'covoiturageData';
 const MAX_BACKUP_SIZE = 20_000_000;
 const MAX_PEOPLE = 30;
@@ -314,7 +314,7 @@ function renderHistory(){
     const monthLabel=new Date(`${month}-01T12:00:00`).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
     return `<section class="history-month"><h2 class="month-title">${escapeHTML(monthLabel)}</h2>${items.map(t=>{
       const names=t.noTrip?'Aucun trajet':t.people.length?t.people.map(personName).join(', '):'Sans passager';
-      const dateLabel=new Date(`${t.date}T12:00:00`).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      const dateLabel=new Date(`${t.date}T12:00:00`).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).replace(/^./,letter=>letter.toLocaleUpperCase('fr-FR'));
       const energy=t.energyType==='electric'?'kWh':'L';
       const snapshot=t.noTrip?'Ancien enregistrement sans trajet.':[
         `${t.people.length} passager(s) · ${euro(t.rate)} par passager`,
